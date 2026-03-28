@@ -1,0 +1,19 @@
+server:
+  port: 8082
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: order-processor-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.xssrae.costumer_service.domain"
+        spring.json.value.default.type: "com.xssrae.costumer_service.domain.OrderEvent"
+
+aws:
+  region: ${AWS_REGION:us-east-1}
+  s3:
+    bucket: ${S3_BUCKET:eda-study-bucket}
+    endpoint: ${LOCALSTACK_ENDPOINT:http://localhost:4566}

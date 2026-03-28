@@ -1,0 +1,19 @@
+spring:
+kafka:
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  producer:
+    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    properties:
+      spring.json.add.type.headers: false   # evita acoplamento de tipo entre servi�os
+
+kafka:
+  topics:
+    orders: orders-topic
+
+aws:
+  region: ${AWS_REGION:us-east-1}
+  s3:
+    bucket: ${S3_BUCKET:eda-study-bucket}
+  # Para LocalStack:
+  # endpoint: http://localhost:4566
