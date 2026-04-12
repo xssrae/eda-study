@@ -11,20 +11,24 @@ import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Component
 
 @Component
-class OrderEventProducer (
-    private val KafkaTemplate: KafkaTemplate<String, OrderEvent>,
-    @Value("\${kafka.topics.orders}") private val topic: String
+class OrderEventProducer(
+    private val kafkaTemplate: KafkaTemplate<String, OrderEvent>,
+    @Value("\${app.kafka.topics.orders}") private val topic: String
 ) {
     private val log = LoggerFactory.getLogger(this::class.java)
 
     suspend fun sendOrderEvent(event: OrderEvent) {
         log.info("Enviando evento: orderId=${event.orderId}, status=${event.status}")
 
-        KafkaTemplate
+        kafkaTemplate                                               // ✅ minúscula
             .send(topic, event.orderId, event)
             .await()
             .also { result ->
-                log.info("Evento enviado ✓ | partition=${result.recordMetadata.partition()}, offset=${result.recordMetadata.offset()}")
+                log.info(
+                    "Evento enviado ✓ | " +
+                            "partition=${result.recordMetadata.partition()}, " +
+                            "offset=${result.recordMetadata.offset()}"
+                )
             }
     }
 
@@ -32,8 +36,6 @@ class OrderEventProducer (
         events
             .map { event -> async { sendOrderEvent(event) } }
             .awaitAll()
-            .also { results ->
-                log.info("Lote enviado: ${results.size} eventos ✓")
-            }
+            .also { log.info("Lote enviado: ${it.size} eventos ✓") }
     }
 }
