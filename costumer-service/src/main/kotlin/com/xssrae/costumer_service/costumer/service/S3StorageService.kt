@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import java.net.URI
 import java.time.LocalDate
 
-@Service
+//@Service
 class S3StorageService (
     @Value("\${aws.s3.bucket:eda-study-bucket}")
     private val bucket: String,
