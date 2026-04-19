@@ -9,8 +9,6 @@ O projeto é composto por dois microsserviços que se comunicam de forma assínc
 - **Producer Service**: Expõe uma API REST e publica eventos de pedido no Kafka
 - **Consumer Service** (Costumer Service): Consome eventos de pedido do Kafka e, opcionalmente, persiste os dados no S3
 
-**Convenção de nomenclatura:** o nome do módulo/pacote é *costumer* e o campo JSON é `costumerId` (não `customerId`). Alterar para “customer” implicaria refactor de pacotes e payloads; até lá, mantém-se esta convenção na API e nos exemplos.
-
 ### Arquitetura
 
 ```
@@ -26,7 +24,7 @@ O projeto é composto por dois microsserviços que se comunicam de forma assínc
 │                  Consumer Service (:8082)                    │
 │  - Aplicação Spring Boot                                     │
 │  - @KafkaListener no orders-topic                            │
-│  - S3StorageService (código presente; bean desativado no código) │
+│  - S3StorageService (@Profile("aws") — desativado por padrão)│
 └─────────────────────────────────────────────────────────────┘
 
 Infraestrutura (Docker Compose):
@@ -38,15 +36,13 @@ Infraestrutura (Docker Compose):
 
 ## 🛠️ Tecnologias
 
-Versões efetivas (ver `producer-service/build.gradle.kts` e `costumer-service/build.gradle.kts`):
-
-- **Linguagem**: Kotlin **2.2.21**
-- **Framework**: Spring Boot **4.0.4**
-- **Message Broker**: Apache Kafka (**confluentinc/cp-kafka:7.5.0**, Zookeeper **confluentinc/cp-zookeeper:7.5.0** no Docker Compose)
-- **AWS SDK**: v2 (`software.amazon.awssdk:bom`; async via `kotlinx-coroutines-jdk8`)
-- **Build**: Gradle Kotlin DSL (`build.gradle.kts`) — **dois projetos Gradle independentes** na mesma pasta (não há multi-módulo na raiz)
-- **Java**: **21** (toolchain)
-- **Suporte assíncrono**: Kotlin Coroutines (`kotlinx-coroutines-*`)
+- **Linguagem**: Kotlin
+- **Framework**: Spring Boot 3.2.3
+- **Message Broker**: Apache Kafka (confluentinc/cp-kafka:7.5.0)
+- **AWS SDK**: v2 (software.amazon.awssdk, async/await via kotlinx-coroutines-jdk8)
+- **Build**: Gradle (build.gradle.kts)
+- **Java**: 21
+- **Suporte Assíncrono**: Kotlin Coroutines
 
 ## 📦 Pré-requisitos
 
@@ -110,32 +106,6 @@ gradlew.bat bootRun
 ```
 
 O Consumer inicia em **http://localhost:8082**
-
-## 🧪 Testes automatizados
-
-Os testes unitários e de integração **não exigem Docker**: a integração com Kafka usa **Embedded Kafka** (broker em memória durante os testes).
-
-Execute os testes **em cada serviço** (cada um tem o seu próprio Gradle wrapper):
-
-```bash
-# Producer
-cd producer-service
-./gradlew test          # Linux / macOS
-gradlew.bat test        # Windows
-
-# Consumer
-cd costumer-service
-./gradlew test          # Linux / macOS
-gradlew.bat test        # Windows
-```
-
-Para rodar apenas uma classe (exemplo):
-
-```bash
-./gradlew test --tests "com.xssrae.producer_service.ProducerServiceApplicationTests"
-```
-
-> **Windows:** ao encerrar os testes com Embedded Kafka, podem aparecer avisos no log sobre falha ao apagar arquivos temporários do broker (`FileSystemException` / arquivo em uso). Costuma ser inofensivo e não indica falha dos testes.
 
 ## 📝 Enviando um Evento de Pedido
 
@@ -225,7 +195,7 @@ eda-study/
 │   │   └── producer/
 │   │       └── OrderEventProducer.kt   # suspend fun + coroutines
 │   ├── src/main/resources/application.yml
-│   ├── src/test/kotlin/                # testes (MockK, Embedded Kafka, etc.)
+│   ├── src/test/resources/application.yml
 │   └── build.gradle.kts
 │
 ├── costumer-service/
@@ -234,15 +204,13 @@ eda-study/
 │   │   ├── config/
 │   │   │   └── AppConfig.kt            # bean ObjectMapper
 │   │   ├── costumer/
-│   │   │   ├── costumer/
-│   │   │   │   └── OrderEventCostumer.kt   # @KafkaListener (pacote costumer.costumer)
-│   │   │   └── service/
-│   │   │       └── S3StorageService.kt     # persistência S3 (bean desativado — ver secção S3)
-│   │   └── domain/
-│   │       ├── OrderEvent.kt           # data class (status: String)
-│   │       └── OrderItem.kt            # definido no mesmo arquivo que OrderEvent
+│   │   │   └── OrderEventCostumer.kt   # @KafkaListener
+│   │   ├── domain/
+│   │   │   ├── OrderEvent.kt           # data class (status: String)
+│   │   │   └── OrderItem.kt
+│   │   └── service/
+│   │       └── S3StorageService.kt     # @Profile("aws") — desativado localmente
 │   ├── src/main/resources/application.yml
-│   ├── src/test/kotlin/
 │   ├── src/test/resources/application.yml
 │   └── build.gradle.kts
 │
@@ -264,9 +232,8 @@ eda-study/
 
 ### Principais propriedades do `application.yml`
 
-**Kafka e tópico (ambos os serviços):**
-
 ```yaml
+# Ambos os serviços
 spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -275,24 +242,25 @@ app:
   kafka:
     topics:
       orders: orders-topic
+
+aws:
+  region: ${AWS_REGION:us-east-1}
+  s3:
+    bucket: ${S3_BUCKET:eda-study-bucket}
+    endpoint: ${LOCALSTACK_ENDPOINT:http://localhost:4566}
 ```
 
-No **producer** existe ainda um bloco `aws.*` em [producer-service/src/main/resources/application.yml](producer-service/src/main/resources/application.yml) (útil para futura integração ou variáveis de ambiente coerentes com LocalStack). O **consumer** não define `aws` no `application.yml` por padrão — as propriedades aplicam-se quando o `S3StorageService` estiver registrado como bean.
+### Ativando a integração com S3
 
-### Armazenamento S3 e LocalStack
+O `S3StorageService` está anotado com `@Profile("aws")` e **não é carregado por padrão**.
 
-No código atual, [`S3StorageService`](costumer-service/src/main/kotlin/com/xssrae/costumer_service/costumer/service/S3StorageService.kt) existe, mas **`@Service` está comentado** (`//@Service`). Ou seja, **o bean não é registrado pelo Spring**: não há perfil nem condição ativa até se descomentar e recompilar.
-
-Para passar a usar persistência em S3 (LocalStack ou AWS):
-
-1. Descomente `@Service` em `S3StorageService` (e, se quiser ligar/desligar por ambiente, adicione **`@Profile("aws")`** e active o perfil apenas quando fizer sentido).
-2. Garanta LocalStack em execução (`docker-compose`) e criação do bucket (ex.: `eda-study-bucket` ou o valor de `aws.s3.bucket`).
-3. Se usar perfil `aws`, exemplo de inicialização do consumer:
+Para ativá-lo, inicie o consumer com o profile `aws`:
 
 ```bash
-cd costumer-service
 ./gradlew bootRun --args='--spring.profiles.active=aws'
 ```
+
+Certifique-se de que o LocalStack está rodando e o bucket foi criado antes de ativar.
 
 ## 🛑 Encerrando os Serviços
 
@@ -360,27 +328,9 @@ Certifique-se de que o arquivo `KafkaConfig.kt` existe dentro de `config/` e dec
 
 Verifique se o corpo da requisição bate exatamente com os campos do DTO — especialmente `costumerId` (com **o**, não `customerId`).
 
-## 🚀 Roadmap e melhorias sugeridas
+## 🚀 Futuras Melhorias
 
-Melhorias de curto prazo (DX e observabilidade):
-
-- **Spring Boot Actuator** com health checks (Kafka em opcional).
-- **OpenAPI/Swagger** no producer para documentar `POST /orders`.
-- **CI** (GitHub Actions ou equivalente): `gradle test` nos dois serviços com cache Gradle.
-
-Fluxo EDA mais completo:
-
-- **Contrato de eventos**: JSON Schema ou Avro versionado para `OrderEvent`.
-- **Idempotência** no consumer (`orderId` como chave de deduplicação).
-- **Retry + DLQ** (dead-letter topic) em falhas de consumo ou serialização.
-
-Infraestrutura:
-
-- Considerar stack **Kafka KRaft** sem Zookeeper no Compose quando atualizar os estudos de Docker.
-
-Persistência:
-
-- **S3**: reativar e consolidar `S3StorageService` (`@Service`, opcional `@Profile("aws")`), gravar cada evento como JSON no bucket (LocalStack em desenvolvimento).
+- **Armazenamento via Bucket S3**: ativar o `S3StorageService` no consumer para persistir cada evento consumido como um arquivo JSON no S3, utilizando o LocalStack em desenvolvimento e um bucket real na AWS em produção. A integração já está implementada e desativada via `@Profile("aws")`, aguardando validação do fluxo completo do Kafka antes de ser habilitada.
 
 ## 📚 Recursos de Aprendizado
 
