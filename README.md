@@ -1,346 +1,350 @@
 # EDA Study
 
-An Event-Driven Architecture (EDA) study project demonstrating asynchronous communication between microservices using Kafka, AWS S3, and Spring Boot with Kotlin.
+Projeto de estudo de Arquitetura Orientada a Eventos (EDA) demonstrando comunicação assíncrona entre microsserviços utilizando Kafka, AWS S3 e Spring Boot com Kotlin.
 
-## 📋 Project Overview
+## 📋 Visão Geral
 
-This project consists of two microservices that communicate asynchronously through Kafka:
+O projeto é composto por dois microsserviços que se comunicam de forma assíncrona através do Kafka:
 
-- **Producer Service**: Generates and publishes order events to Kafka
-- **Consumer Service** (Customer Service): Consumes order events from Kafka and stores data in S3
+- **Producer Service**: Expõe uma API REST e publica eventos de pedido no Kafka
+- **Consumer Service** (Costumer Service): Consome eventos de pedido do Kafka e, opcionalmente, persiste os dados no S3
 
-### Architecture Components
+### Arquitetura
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Producer Service                          │
-│  - Spring Boot REST API                                      │
-│  - Publishes OrderEvents to Kafka                            │
-│  - Stores data in S3 (LocalStack in dev)                     │
+│                    Producer Service (:8081)                  │
+│  - API REST Spring Boot                                      │
+│  - POST /orders → publica OrderEvent no Kafka               │
 └─────────────────────────────────────────────────────────────┘
                            │
-                    (Kafka Topic)
+                    (orders-topic)
                            │
 ┌─────────────────────────────────────────────────────────────┐
-│                  Consumer Service                            │
-│  - Spring Boot Application                                   │
-│  - Listens to Kafka OrderEvents                              │
-│  - Stores events in S3 (LocalStack in dev)                   │
+│                  Consumer Service (:8082)                    │
+│  - Aplicação Spring Boot                                     │
+│  - @KafkaListener no orders-topic                            │
+│  - S3StorageService (@Profile("aws") — desativado por padrão)│
 └─────────────────────────────────────────────────────────────┘
 
-Infrastructure:
-- Kafka: Message broker for asynchronous communication
-- Zookeeper: Kafka dependency for cluster coordination
-- LocalStack: Local AWS S3 emulation for development
-- Kafka UI: Web interface to monitor Kafka topics and messages
+Infraestrutura (Docker Compose):
+- Kafka broker          → porta 9092 (externa) / 29092 (interna)
+- Zookeeper             → porta 2181
+- Kafka UI              → porta 8080  →  http://localhost:8080
+- LocalStack (S3)       → porta 4566
 ```
 
-## 🛠️ Tech Stack
+## 🛠️ Tecnologias
 
-- **Language**: Kotlin 2.2.21
-- **Framework**: Spring Boot 4.0.4
-- **Message Broker**: Apache Kafka 7.5.0
-- **AWS SDK**: v2 (with async/await support)
-- **Build Tool**: Gradle
-- **Java Version**: 21
-- **Async Support**: Kotlin Coroutines
+- **Linguagem**: Kotlin
+- **Framework**: Spring Boot 3.2.3
+- **Message Broker**: Apache Kafka (confluentinc/cp-kafka:7.5.0)
+- **AWS SDK**: v2 (software.amazon.awssdk, async/await via kotlinx-coroutines-jdk8)
+- **Build**: Gradle (build.gradle.kts)
+- **Java**: 21
+- **Suporte Assíncrono**: Kotlin Coroutines
 
-## 📦 Prerequisites
-
-Before starting, ensure you have the following installed:
+## 📦 Pré-requisitos
 
 - **Java 21+**: [Download](https://adoptium.net/)
 - **Docker & Docker Compose**: [Download](https://www.docker.com/products/docker-desktop)
 - **Git**: [Download](https://git-scm.com/)
 
-Verify installations:
+Verifique as instalações:
 ```bash
 java -version
 docker --version
 docker-compose --version
 ```
 
-## 🚀 Quick Start Guide
+## 🚀 Iniciando o Projeto
 
-### Step 1: Start Infrastructure Services
-
-Navigate to the project root and start Kafka, Zookeeper, LocalStack, and Kafka UI using Docker Compose:
+### Passo 1: Subir a Infraestrutura
 
 ```bash
-cd C:\Projetos\eda-study
+cd eda-study
 docker-compose up -d
+docker-compose ps   # todos os serviços devem exibir "Up"
 ```
 
-This will start:
-- **Zookeeper** on port 2181
-- **Kafka** on port 9092
-- **LocalStack** (S3 emulation) on port 4566
-- **Kafka UI** on port 8080
+| Container   | Porta | Finalidade                              |
+|-------------|-------|-----------------------------------------|
+| zookeeper   | 2181  | Coordenação do Kafka                    |
+| kafka       | 9092  | Broker (externa / Spring Boot)          |
+| kafka       | 29092 | Broker (interna / Docker)               |
+| kafka-ui    | 8080  | Interface web → http://localhost:8080   |
+| localstack  | 4566  | Emulação do S3                          |
 
-Verify services are running:
-```bash
-docker-compose ps
-```
+> ⚠️ Aguarde ~20 segundos após o `docker-compose up` antes de iniciar os serviços — o Kafka precisa de alguns instantes para inicializar.
 
-### Step 2: Start Producer Service
-
-Open a new terminal and navigate to the producer service:
+### Passo 2: Iniciar o Producer Service
 
 ```bash
-cd C:\Projetos\eda-study\producer-service
-```
+cd eda-study/producer-service
 
-Build and run the application:
-
-```bash
-# For Linux/Mac
+# Linux/Mac
 ./gradlew bootRun
 
-# For Windows
+# Windows
 gradlew.bat bootRun
 ```
 
-The Producer Service will start on **http://localhost:8080** (or next available port).
+O Producer inicia em **http://localhost:8081**
 
-### Step 3: Start Consumer Service
+### Passo 3: Iniciar o Consumer Service
 
-Open another new terminal and navigate to the consumer service:
-
-```bash
-cd C:\Projetos\eda-study\costumer-service
-```
-
-Build and run the application:
+Abra um novo terminal:
 
 ```bash
-# For Linux/Mac
+cd eda-study/costumer-service
+
+# Linux/Mac
 ./gradlew bootRun
 
-# For Windows
+# Windows
 gradlew.bat bootRun
 ```
 
-The Consumer Service will start on **http://localhost:8081** (or next available port).
+O Consumer inicia em **http://localhost:8082**
 
-### Step 4: Verify Everything is Running
+## 📝 Enviando um Evento de Pedido
 
-Check Docker containers:
-```bash
-docker-compose ps
-```
-
-Access Kafka UI to monitor messages:
-```
-http://localhost:8080
-```
-
-## 📝 Usage Examples
-
-### Send an Order Event (Producer Service)
-
-Once the Producer Service is running, send a POST request to create an order:
+### Via curl
 
 ```bash
-curl -X POST http://localhost:8080/api/orders \
+curl -X POST http://localhost:8081/orders \
   -H "Content-Type: application/json" \
   -d '{
-    "orderId": "ORD-001",
-    "customerId": "CUST-001",
-    "amount": 99.99,
-    "timestamp": "2026-03-27T10:00:00Z"
+    "orderId": "order-001",
+    "costumerId": "cliente-123",
+    "items": [
+      { "productId": "prod-A", "quantity": 2, "price": 49.90 },
+      { "productId": "prod-B", "quantity": 1, "price": 99.90 }
+    ],
+    "totalAmount": 199.70,
+    "status": "PENDING"
   }'
 ```
 
-Expected response:
+### Via PowerShell
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8081/orders" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{
+    "orderId": "order-001",
+    "costumerId": "cliente-123",
+    "items": [
+      { "productId": "prod-A", "quantity": 2, "price": 49.90 },
+      { "productId": "prod-B", "quantity": 1, "price": 99.90 }
+    ],
+    "totalAmount": 199.70,
+    "status": "PENDING"
+  }'
+```
+
+Resposta esperada:
 ```json
 {
-  "orderId": "ORD-001",
-  "customerId": "CUST-001",
-  "amount": 99.99,
-  "timestamp": "2026-03-27T10:00:00Z",
-  "status": "PUBLISHED"
+  "message": "Evento de pedido enviado com sucesso"
 }
 ```
 
-### Monitor Kafka Messages
+> ⚠️ **Atenção**: o campo é `costumerId` (com **o**) — deve bater exatamente com o DTO.
 
-Open Kafka UI in your browser:
+### Log esperado no Consumer
+
+Após enviar a requisição, o terminal do consumer deve exibir:
+
 ```
-http://localhost:8080
-```
-
-Navigate to Topics → **orders-topic** to see published messages in real-time.
-
-### Check S3 Storage (LocalStack)
-
-View stored files in LocalStack S3:
-```bash
-aws s3 ls s3://eda-study-bucket --endpoint-url http://localhost:4566 --region us-east-1
-```
-
-To list objects:
-```bash
-aws s3api list-objects-v2 --bucket eda-study-bucket --endpoint-url http://localhost:4566 --region us-east-1
+✅ Evento recebido!
+   orderId   = order-001
+   costumerId= cliente-123
+   status    = PENDING
+   total     = 199.70
+   partition = 0 | offset = 0
+📦 Processando pedido order-001
 ```
 
-> **Note**: Install AWS CLI if not present: `pip install awscli`
+### Via Kafka UI
 
-## 📁 Project Structure
+1. Acesse **http://localhost:8080**
+2. Vá em **Topics → orders-topic → Produce Message**
+3. Cole o payload JSON e clique em **Produce**
+
+## 📁 Estrutura do Projeto
 
 ```
 eda-study/
-├── docker-compose.yml              # Infrastructure definition
-├── README.md                        # This file
+├── docker-compose.yml
+├── README.md
 │
-├── producer-service/               # Order event producer
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── kotlin/
-│   │   │   │   └── com/xssrae/producer_service/
-│   │   │   │       ├── ProducerServiceApplication.kt
-│   │   │   │       ├── controller/
-│   │   │   │       │   └── OrderController.kt
-│   │   │   │       ├── domain/
-│   │   │   │       │   └── OrderEvent.kt
-│   │   │   │       ├── producer/
-│   │   │   │       │   └── OrderEventProducer.kt
-│   │   │   │       └── service/
-│   │   │   │           └── S3StorageService.kt
-│   │   │   └── resources/
-│   │   │       └── application.yml
-│   │   └── test/
-│   │       └── kotlin/
-│   │           └── com/xssrae/producer_service/
-│   │               └── ProducerServiceApplicationTests.kt
-│   ├── build.gradle.kts
-│   ├── settings.gradle.kts
-│   └── gradle/
+├── producer-service/
+│   ├── src/main/kotlin/com/xssrae/producer_service/
+│   │   ├── ProducerServiceApplication.kt
+│   │   ├── config/
+│   │   │   ├── KafkaConfig.kt          # beans KafkaTemplate + ProducerFactory
+│   │   │   └── KafkaTopicConfig.kt     # cria o orders-topic automaticamente
+│   │   ├── controller/
+│   │   │   └── OrderController.kt      # POST /orders
+│   │   ├── domain/
+│   │   │   ├── OrderEvent.kt           # data class
+│   │   │   ├── OrderItem.kt            # data class
+│   │   │   └── OrderStatus.kt          # sealed class
+│   │   └── producer/
+│   │       └── OrderEventProducer.kt   # suspend fun + coroutines
+│   ├── src/main/resources/application.yml
+│   ├── src/test/resources/application.yml
+│   └── build.gradle.kts
 │
-├── costumer-service/               # Order event consumer
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── kotlin/
-│   │   │   │   └── com/xssrae/costumer_service/
-│   │   │   │       ├── CostumerServiceApplication.kt
-│   │   │   │       ├── config/
-│   │   │   │       │   └── AppConfig.kt
-│   │   │   │       ├── costumer/
-│   │   │   │       │   ├── OrderEventConsumer.kt
-│   │   │   │       │   └── costumer/
-│   │   │   │       │       └── OrderEventCostumer.kt
-│   │   │   │       ├── domain/
-│   │   │   │       │   └── OrderEvent.kt
-│   │   │   │       └── service/
-│   │   │   │           └── S3StorageService.kt
-│   │   │   └── resources/
-│   │   │       └── application.yml
-│   │   └── test/
-│   │       └── kotlin/
-│   │           └── com/xssrae/costumer_service/
-│   │               └── CostumerServiceApplicationTests.kt
-│   ├── build.gradle.kts
-│   ├── settings.gradle.kts
-│   └── gradle/
+├── costumer-service/
+│   ├── src/main/kotlin/com/xssrae/costumer_service/
+│   │   ├── CostumerServiceApplication.kt
+│   │   ├── config/
+│   │   │   └── AppConfig.kt            # bean ObjectMapper
+│   │   ├── costumer/
+│   │   │   └── OrderEventCostumer.kt   # @KafkaListener
+│   │   ├── domain/
+│   │   │   ├── OrderEvent.kt           # data class (status: String)
+│   │   │   └── OrderItem.kt
+│   │   └── service/
+│   │       └── S3StorageService.kt     # @Profile("aws") — desativado localmente
+│   ├── src/main/resources/application.yml
+│   ├── src/test/resources/application.yml
+│   └── build.gradle.kts
 │
-└── localstack-data/                # LocalStack persistence volume
+└── localstack-data/                    # volume de persistência do LocalStack
 ```
 
-## 🔧 Configuration
+## 🔧 Configuração
 
-### Environment Variables
+### Mapa de Portas
 
-Configure services using environment variables or `application.yml`:
+| Serviço          | Porta |
+|------------------|-------|
+| Kafka UI         | 8080  |
+| Producer Service | 8081  |
+| Consumer Service | 8082  |
+| Kafka (externa)  | 9092  |
+| LocalStack S3    | 4566  |
+| Zookeeper        | 2181  |
 
-**Kafka Configuration:**
+### Principais propriedades do `application.yml`
+
 ```yaml
+# Ambos os serviços
 spring:
   kafka:
-    bootstrap-servers: localhost:9092
-```
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
-**AWS S3 Configuration:**
-```yaml
+app:
+  kafka:
+    topics:
+      orders: orders-topic
+
 aws:
-  region: us-east-1
+  region: ${AWS_REGION:us-east-1}
   s3:
-    bucket: eda-study-bucket
-  endpoint: http://localhost:4566  # LocalStack endpoint
+    bucket: ${S3_BUCKET:eda-study-bucket}
+    endpoint: ${LOCALSTACK_ENDPOINT:http://localhost:4566}
 ```
 
-### Kafka Topics
+### Ativando a integração com S3
 
-The project automatically creates the following topics:
+O `S3StorageService` está anotado com `@Profile("aws")` e **não é carregado por padrão**.
 
-- **orders-topic**: Where order events are published and consumed
-
-## 🛑 Stopping Services
-
-### Stop Docker Containers
+Para ativá-lo, inicie o consumer com o profile `aws`:
 
 ```bash
+./gradlew bootRun --args='--spring.profiles.active=aws'
+```
+
+Certifique-se de que o LocalStack está rodando e o bucket foi criado antes de ativar.
+
+## 🛑 Encerrando os Serviços
+
+```bash
+# Para todos os containers Docker
 docker-compose down
-```
 
-To remove data volumes as well:
-```bash
+# Para e remove os volumes (limpa dados do Kafka e LocalStack)
 docker-compose down -v
 ```
 
-### Stop Running Applications
+Encerre os serviços Spring Boot com `Ctrl+C` em cada terminal.
 
-- Press `Ctrl+C` in the terminals running Producer and Consumer services
+## 🔍 Solução de Problemas
 
-## 🔍 Troubleshooting
+### Consumer não recebe mensagens
 
-### Issue: "Connection refused" to Kafka
+1. Confirme que ambos os serviços usam o mesmo nome de tópico (`orders-topic`)
+2. Verifique se `app.kafka.topics.orders` existe no `application.yml` do consumer
+3. Procure nos logs do consumer por `Subscribed to topic(s): orders-topic`
+4. Confirme que o `@KafkaListener` referencia `${app.kafka.topics.orders}`
 
-**Solution**: Ensure Docker containers are running:
-```bash
-docker-compose up -d
-docker-compose ps
+### Kafka UI não conecta ao broker
+
+O Kafka UI roda **dentro do Docker** e precisa usar o listener interno. Certifique-se de que o `docker-compose.yml` possui:
+
+```yaml
+kafka:
+  environment:
+    KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+    KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+    KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+    KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+kafka-ui:
+  environment:
+    KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092   # listener interno
 ```
 
-### Issue: Producer service fails to start
+### Conflito de portas
 
-**Solution**: Check if port 8080 is already in use. The application will use the next available port (8081, 8082, etc.).
+```powershell
+# Encontrar processo usando uma porta (Windows)
+netstat -ano | findstr :8081
 
-To check which port is being used:
-```bash
-netstat -ano | findstr :8080
+# Encerrar pelo PID
+taskkill /PID <PID> /F
 ```
 
-### Issue: Messages not appearing in Consumer
+### `PlaceholderResolutionException` na inicialização
 
-**Solution**: 
-1. Verify the Consumer Service is running
-2. Check that both services are connected to the same Kafka broker
-3. Review logs for errors: check the terminal output of the Consumer Service
+Adicione valores padrão em todas as anotações `@Value`:
 
-### Issue: LocalStack not persisting data
-
-**Solution**: Ensure the `./localstack-data` volume is properly mounted and has write permissions:
-```bash
-docker-compose logs localstack
+```kotlin
+@Value("\${aws.s3.bucket:eda-study-bucket}") private val bucket: String
+@Value("\${aws.region:us-east-1}") private val region: String
+@Value("\${aws.s3.endpoint:http://localhost:4566}") private val endpoint: String
 ```
 
-## 📚 Learning Resources
+### Bean `KafkaTemplate` não encontrado
 
-- [Event-Driven Architecture](https://en.wikipedia.org/wiki/Event-driven_architecture)
-- [Apache Kafka Documentation](https://kafka.apache.org/documentation/)
-- [Spring Boot & Kafka](https://spring.io/projects/spring-kafka)
-- [AWS SDK for Java v2](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/)
-- [Kotlin Coroutines](https://kotlinlang.org/docs/coroutines-overview.html)
+Certifique-se de que o arquivo `KafkaConfig.kt` existe dentro de `config/` e declara os beans `producerFactory` e `kafkaTemplate`. Consulte `producer-service/config/KafkaConfig.kt`.
 
-## 📄 License
+### 400 Bad Request no POST /orders
 
-This is a study project.
+Verifique se o corpo da requisição bate exatamente com os campos do DTO — especialmente `costumerId` (com **o**, não `customerId`).
 
-## 👤 Author
+## 🚀 Futuras Melhorias
 
-Created as an educational project for Event-Driven Architecture patterns.
+- **Armazenamento via Bucket S3**: ativar o `S3StorageService` no consumer para persistir cada evento consumido como um arquivo JSON no S3, utilizando o LocalStack em desenvolvimento e um bucket real na AWS em produção. A integração já está implementada e desativada via `@Profile("aws")`, aguardando validação do fluxo completo do Kafka antes de ser habilitada.
+
+## 📚 Recursos de Aprendizado
+
+- [Arquitetura Orientada a Eventos](https://en.wikipedia.org/wiki/Event-driven_architecture)
+- [Documentação do Apache Kafka](https://kafka.apache.org/documentation/)
+- [Spring Kafka Reference](https://docs.spring.io/spring-kafka/reference/)
+- [AWS SDK para Java v2](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/)
+- [Guia de Kotlin Coroutines](https://kotlinlang.org/docs/coroutines-overview.html)
+- [Documentação do LocalStack](https://docs.localstack.cloud/)
+
+## 📄 Licença
+
+Projeto de estudo — livre para uso e modificação.
 
 ---
 
-**Last Updated**: March 2026
-
-For issues or questions, please check the logs and Docker container status first!
+**Última atualização**: Abril de 2026
