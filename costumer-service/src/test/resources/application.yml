@@ -1,6 +1,6 @@
 spring:
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}
     consumer:
       group-id: order-processor-group
       auto-offset-reset: earliest
@@ -10,19 +10,7 @@ spring:
         spring.json.trusted.packages: "com.xssrae.costumer_service.domain"
         spring.json.value.default.type: "com.xssrae.costumer_service.domain.OrderEvent"
 
-aws:
-  region: us-east-1
-  s3:
-    bucket: eda-study-bucket
-    endpoint: http://localhost:4566
-  ```
-
----
-
-```
-${LOCALSTACK_ENDPOINT:}
-↑
-default vazio → String vazia → @Value injeta ""
-→ S3AsyncClient tenta criar URI("")  → exceção
-→ Spring não consegue criar o Bean
-→ PlaceholderResolutionException
+app:
+  kafka:
+    topics:
+      orders: orders-topic

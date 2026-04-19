@@ -37,10 +37,12 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.7.3")  // WebFlux
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.7.3")    // ✅ .await()
 
-    // Testes
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.kafka:spring-kafka-test")
+    // Testes (JUnit alinhado via spring-boot-starter-test / BOM do Spring Boot)
+    testImplementation("io.mockk:mockk:1.13.5")
+    testImplementation(kotlin("test-junit5"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 
 kotlin {
@@ -49,7 +51,6 @@ kotlin {
 	}
 }
 
-tasks.named<Test>("test") {
-    // Pula testes que precisam de infraestrutura externa
-    exclude("**/*ApplicationTests*")
+tasks.withType<Test>().configureEach {
+	useJUnitPlatform()
 }
